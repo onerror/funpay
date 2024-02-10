@@ -4,7 +4,6 @@ namespace FpDbTest;
 
 use mysqli;
 
-
 abstract class AbstractQueryBuilder implements QueryBuilderInterface
 {
     private mysqli $mysqli;
@@ -29,34 +28,18 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
                 $resultingQueryParameterValues
             ] = $this->getQueryPartsWithBlocksUnfoldedAndFiltered($queryParts, $resultingQueryParameterValues);
             
-            foreach ($partsWithBlocksUnfoldedAndFiltered as $queryPart) {
-                if ($queryPart[0] == '?') {
-                    $specifierType = $this->getSpecifierTypeFromQueryPart($queryPart);
+            $queryParts = (new QueryPartsCollection($partsWithBlocksUnfoldedAndFiltered))->getQueryParts();
+            
+            foreach ($queryParts as $queryPart) {
+                if ($queryPart instanceof SpecifierInterface) {
                     $value = array_shift($resultingQueryParameterValues);
-                    
-                    switch ($specifierType) {
-                        case 'd':
-                            $queryPart = $this->formatNullableIntValue($value);
-                            break;
-                        case 'f':
-                            $queryPart = $this->formatNullableFloatValue($value);
-                            break;
-                        case '#':
-                            if (is_array($value)) {
-                                $queryPart = $this->formatIdentifiersSet($value);
-                            } else {
-                                $queryPart = $this->formatIdentifier($value);
-                            }
-                            break;
-                        case 'a':
-                            $queryPart = $this->formatArrayValue($value);
-                            break;
-                        default:
-                            $queryPart = $this->formatGenericScalarValueAsIs($value);
-                            break;
-                    }
+                    $value = is_string($value) ? $this->getRealEscapedString($value) : $value;
+                    $resultingQueryPartsArray[] = $queryPart->formatParameterValue(
+                        $value
+                    );
+                } else {
+                    $resultingQueryPartsArray[] = (string)$queryPart;
                 }
-                $resultingQueryPartsArray[] = $queryPart;
             }
             
             $result = $this->postProcessQuery(implode('', $resultingQueryPartsArray));
@@ -73,15 +56,16 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $query;
     }
     
+    // Блоки в будущем тоже можно выделить в отдельные классы по аналогии с QueryPartsCollection, но пока по ТЗ это слишком малозначимая часть
     protected function getQueryPartsWithBlocksUnfoldedAndFiltered(array $queryParts, array $queryParameterValues): array
     {
-        $newParts = [];
-        $newArguments = $queryParameterValues;
+        $resultingParts = [];
+        $resultingArguments = $queryParameterValues;
         $argumentIndex = 0;
-        foreach ($queryParts as $part) {
-            if ($part[0] === '{') {
+        foreach ($queryParts as $queryPart) {
+            if ($this->isBlock($queryPart[0])) {
                 $startingIndexOfBlockArguments = $argumentIndex;
-                $block = StringHelper::removeSurroundingCharacters($part);
+                $block = StringHelper::removeSurroundingCharacters($queryPart);
                 $argumentsInBlockTally = $this->countParametersInCurlyBracesBlock($block);
                 
                 $blockParts = $this->splitQueryTemplateToProcessableParts($block);
@@ -92,31 +76,25 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
                     $blockPartsToProcess = [];
                     for ($indexToUnset = $startingIndexOfBlockArguments; $indexToUnset < $startingIndexOfBlockArguments + $argumentsInBlockTally; $indexToUnset++) {
                         unset($queryParameterValues[$indexToUnset]);
-                        
                     }
                 } else {
                     $blockPartsToProcess = $blockParts;
                 }
-                $newParts = array_merge($newParts, $blockPartsToProcess);
+                $resultingParts = array_merge($resultingParts, $blockPartsToProcess);
             } else {
-                $newParts[] = $part;
-                if ($this->isQueryPartAParameter($part)) {
+                $resultingParts[] = $queryPart;
+                if ($this->isQueryPartAParameter($queryPart)) {
                     $argumentIndex++;
                 }
             }
         }
-        return [$newParts, $newArguments];
+        return [$resultingParts, $resultingArguments];
     }
     
     protected function splitQueryTemplateToProcessableParts(string $query): array
     {
         $parts = preg_split('~(\?[#daf]?|\{.*}?+)~u', $query, null, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
         return $parts;
-    }
-    
-    protected function isArrayAssociative(array $array): bool
-    {
-        return array_keys($array) !== range(0, count($array) - 1);
     }
     
     private function countParametersInCurlyBracesBlock(string $query): int
@@ -129,17 +107,6 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $part[0] == '?';
     }
     
-    protected function getFormattedValue($value): float|int|string
-    {
-        return $this->formatGenericScalarValueAsIs($value);
-    }
-    
-    protected function getSpecifierTypeFromQueryPart(string $queryPart): string
-    {
-        $type = substr($queryPart, 1, 1);
-        return $type;
-    }
-    
     /**
      * Делаем строку безопасной для использования в запросе
      */
@@ -148,62 +115,6 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $this->mysqli->real_escape_string($value);
     }
     
-    protected function formatIdentifiersSet(array $value): string
-    {
-        return implode(', ', array_map(function ($scalarValue) {
-            return $this->formatIdentifier($scalarValue);
-        }, $value));
-    }
-    
-    protected function formatIdentifier(string $value): string
-    {
-        return StringHelper::wrapWithTicks( $this->getRealEscapedString($value));
-    }
-    
-    protected function formatArrayValue(array $value): string
-    {
-        $set = [];
-        $isAssociative = $this->isArrayAssociative($value);
-        foreach ($value as $k => $v) {
-            $set[] = ($isAssociative ? StringHelper::wrapWithTicks($this->getRealEscapedString($k)) . ' = ' : '') .
-                (is_null($v) ? 'NULL' : $this->getFormattedValue(
-                    $v
-                ));
-        }
-        $part = implode(', ', $set);
-        return $part;
-    }
-    
-    
-    protected function formatNullableIntValue(mixed $value): string
-    {
-        return is_null($value) ? 'NULL' : (string)$value;
-    }
-    
-    protected function formatNullableFloatValue(mixed $value): string
-    {
-        return is_null($value) ? 'NULL' : (string)$value;
-    }
-    
-    /**
-     * Скалярное значение любого типа оставляем, как есть, только экранируем
-     */
-    public function formatGenericScalarValueAsIs(mixed $value): string
-    {
-        if (is_null($value)){
-            $formattedValue = 'NULL';
-        }else {
-            $formattedValue = is_numeric($value) ? $value : "'" . $this->getRealEscapedString($value) . "'";
-        }
-        return $formattedValue;
-    }
-    
-    /**
-     * @param array $blockParts
-     * @param array $blockParameterValues
-     *
-     * @return bool
-     */
     public function isBlockNeededToBeSkipped(array $blockParts, array $blockParameterValues): bool
     {
         $toSkip = false;
@@ -219,6 +130,11 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
             }
         }
         return $toSkip;
+    }
+    
+    protected function isBlock($queryPart): bool
+    {
+        return $queryPart === '{';
     }
     
 }

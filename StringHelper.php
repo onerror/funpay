@@ -11,6 +11,10 @@ class StringHelper
     
     public static function wrapWithTicks(string $inputString): string
     {
-        return "`$inputString`";
+        return "`{$inputString}`";
+    }
+    public static function wrapWithQuotes(string $inputString): string
+    {
+        return "'{$inputString}'";
     }
 }

@@ -2,7 +2,7 @@
 
 namespace FpDbTest;
 
-class QueryTemplate
+class Block
 {
     
 }
