@@ -30,21 +30,7 @@ class Database implements DatabaseInterface
     public function buildQuery(string $query, array $args = []): string
     {
         try {
-            /**
-             * @var QueryBuilderInterface $queryBuilder
-             */
-            $queryBuilderClass = GenericQueryBuilder::class;
-            if (stripos($query, 'SELECT') === 0) {
-                $queryBuilderClass = SelectQueryBuilder::class;
-            }
-            if (!isset($this->queryBuilders[$queryBuilderClass])) {
-                $this->queryBuilders[$queryBuilderClass] = new $queryBuilderClass(
-                    $this->mysqli,
-                    self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY
-                );
-            }
-            $queryBuilder = $this->queryBuilders[$queryBuilderClass];
-            
+            $queryBuilder = $this->getQueryBuilder(static::getQueryBuilderClass($query));
             return $queryBuilder->buildQuery($query, $args);
         }catch(\Throwable $t){
             throw new Exception('Ошибка при построении запроса: ' . $t->getMessage(),$t->getCode(), $t->getPrevious());
@@ -55,5 +41,27 @@ class Database implements DatabaseInterface
     public function skip(): string
     {
         return self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY;
+    }
+    
+    protected static function getQueryBuilderClass(string $query): string
+    {
+        $queryBuilderClass = GenericQueryBuilder::class;
+        if (stripos($query, 'SELECT') === 0) {
+            $queryBuilderClass = SelectQueryBuilder::class;
+        }
+        return $queryBuilderClass;
+    }
+    
+    protected function getQueryBuilder(string $queryBuilderClass): QueryBuilderInterface
+    {
+        if (!isset($this->queryBuilders[$queryBuilderClass])) {
+            $this->queryBuilders[$queryBuilderClass] = new $queryBuilderClass(
+                $this->mysqli,
+                self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY
+            );
+        }
+
+        $queryBuilder = $this->queryBuilders[$queryBuilderClass];
+        return $queryBuilder;
     }
 }
