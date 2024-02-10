@@ -2,7 +2,7 @@
 
 namespace FpDbTest;
 
-class GenericQueryBuilder extends AbstractQueryBuilder implements QueryBuilderInterface
+class GenericQueryBuilder extends AbstractQueryBuilder
 {
 
 }

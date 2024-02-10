@@ -4,13 +4,13 @@ namespace FpDbTest;
 class StringHelper
 {
     
-    /**
-     * @param mixed $part
-     *
-     * @return string
-     */
-    public static function removeSurroundingCharacters(string $part): string
+    public static function removeSurroundingCharacters(string $inputString): string
     {
-        return substr($part, 1, -1);
+        return substr($inputString, 1, -1);
+    }
+    
+    public static function wrapWithTicks(string $inputString): string
+    {
+        return "`$inputString`";
     }
 }

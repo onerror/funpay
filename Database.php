@@ -14,11 +14,14 @@ class Database implements DatabaseInterface
     const string SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY = '__SKIP_THIS_BLOCK__';
     private mysqli $mysqli;
     
-    private QueryBuilderInterface $queryBuilder;
+    /**
+     * @var QueryBuilderInterface[] $queryBuilders
+     */
+    private array $queryBuilders;
 
     public function __construct(mysqli $mysqli)
     {
-        $this->queryBuilder = QueryBuilderFactory::createQueryBuilder($mysqli, self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY);
+        $this->mysqli = $mysqli;
     }
     
     /**
@@ -27,7 +30,22 @@ class Database implements DatabaseInterface
     public function buildQuery(string $query, array $args = []): string
     {
         try {
-            return $this->queryBuilder->buildQuery($query, $args);
+            /**
+             * @var QueryBuilderInterface $queryBuilder
+             */
+            $queryBuilderClass = GenericQueryBuilder::class;
+            if (stripos($query, 'SELECT') === 0) {
+                $queryBuilderClass = SelectQueryBuilder::class;
+            }
+            if (!isset($this->queryBuilders[$queryBuilderClass])) {
+                $this->queryBuilders[$queryBuilderClass] = new $queryBuilderClass(
+                    $this->mysqli,
+                    self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY
+                );
+            }
+            $queryBuilder = $this->queryBuilders[$queryBuilderClass];
+            
+            return $queryBuilder->buildQuery($query, $args);
         }catch(\Throwable $t){
             throw new Exception('Ошибка при построении запроса: ' . $t->getMessage(),$t->getCode(), $t->getPrevious());
         }

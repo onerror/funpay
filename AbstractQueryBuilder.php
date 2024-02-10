@@ -11,18 +11,18 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
     
     private string $specialValueForMarkingSkippedBlocksInQueries;
     
-    public function __construct(mysqli $mysqli, string $specialValueForMarkingSkippedBlocksInQueries)
+    final public function __construct(mysqli $mysqli, string $specialValueForMarkingSkippedBlocksInQueries)
     {
         $this->mysqli = $mysqli;
         $this->specialValueForMarkingSkippedBlocksInQueries = $specialValueForMarkingSkippedBlocksInQueries;
     }
     
-    public function buildQuery(string $query, array $queryParameters): string
+    final public function buildQuery(string $query, array $queryParameters): string
     {
         try {
             $resultingQueryParameterValues = $queryParameters;
             $queryParts = $this->splitQueryTemplateToProcessableParts($query);
-            $result = [];
+            $resultingQueryPartsArray = [];
             
             [
                 $partsWithBlocksUnfoldedAndFiltered,
@@ -52,14 +52,15 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
                             $queryPart = $this->formatArrayValue($value);
                             break;
                         default:
-                            $queryPart = "'" . $this->getRealEscapedStringForValue($value) . "'"; // todo which type?
+                            $queryPart = $this->formatGenericScalarValueAsIs($value);
                             break;
                     }
                 }
-                $result[] = $queryPart;
+                $resultingQueryPartsArray[] = $queryPart;
             }
             
-            return implode('', $result);
+            $result = $this->postProcessQuery(implode('', $resultingQueryPartsArray));
+            return $result;
         } catch (\Throwable $t) {
             throw new \Exception(
                 'Ошибка при построении запроса: ' . $t->getMessage(), $t->getCode(), $t->getPrevious()
@@ -67,36 +68,36 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         }
     }
     
-    private function getQueryPartsWithBlocksUnfoldedAndFiltered(array $queryParts, array $queryArguments): array
+    protected function postProcessQuery(string $query): string
+    {
+        return $query;
+    }
+    
+    protected function getQueryPartsWithBlocksUnfoldedAndFiltered(array $queryParts, array $queryParameterValues): array
     {
         $newParts = [];
-        $newArguments = $queryArguments;
+        $newArguments = $queryParameterValues;
         $argumentIndex = 0;
         foreach ($queryParts as $part) {
             if ($part[0] === '{') {
                 $startingIndexOfBlockArguments = $argumentIndex;
                 $block = StringHelper::removeSurroundingCharacters($part);
-                // todo check if block should disappear as a method
-                $argumentsInBlockTally = $this->countParameters($block);
+                $argumentsInBlockTally = $this->countParametersInCurlyBracesBlock($block);
+                
                 $blockParts = $this->splitQueryTemplateToProcessableParts($block);
                 
-                $toSkip = false;
-                foreach ($blockParts as $blockPart) {
-                    if ($this->isQueryPartAParameter($blockPart)) {
-                        if ($queryArguments[$argumentIndex] === $this->specialValueForMarkingSkippedBlocksInQueries) {
-                            $toSkip = true;
-                            break;
-                        }
-                        $argumentIndex++;
-                    }
-                }
-                if ($toSkip) {
+                $blockParameterValues = array_slice($queryParameterValues, $argumentIndex, $argumentsInBlockTally);
+                
+                if ($this->isBlockNeededToBeSkipped($blockParts, $blockParameterValues)) {
+                    $blockPartsToProcess = [];
                     for ($indexToUnset = $startingIndexOfBlockArguments; $indexToUnset < $startingIndexOfBlockArguments + $argumentsInBlockTally; $indexToUnset++) {
-                        unset($queryArguments[$indexToUnset]);
+                        unset($queryParameterValues[$indexToUnset]);
+                        
                     }
                 } else {
-                    $newParts = array_merge($newParts, $blockParts);
+                    $blockPartsToProcess = $blockParts;
                 }
+                $newParts = array_merge($newParts, $blockPartsToProcess);
             } else {
                 $newParts[] = $part;
                 if ($this->isQueryPartAParameter($part)) {
@@ -107,100 +108,117 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return [$newParts, $newArguments];
     }
     
-    private function splitQueryTemplateToProcessableParts(string $query): array
+    protected function splitQueryTemplateToProcessableParts(string $query): array
     {
         $parts = preg_split('~(\?[#daf]?|\{.*}?+)~u', $query, null, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
         return $parts;
     }
     
-    private function arrayIsAssociative(array $array): bool
+    protected function isArrayAssociative(array $array): bool
     {
         return array_keys($array) !== range(0, count($array) - 1);
     }
     
-    private function countParameters(string $query): int
+    private function countParametersInCurlyBracesBlock(string $query): int
     {
         return substr_count($query, '?');
     }
     
-    private function isQueryPartAParameter(string $part): bool
+    protected function isQueryPartAParameter(string $part): bool
     {
         return $part[0] == '?';
     }
     
-    private function getFormattedValue($value): float|int|string
+    protected function getFormattedValue($value): float|int|string
     {
-        return (is_numeric($value)) ? $value : "'" . $this->getRealEscapedStringForValue($value) . "'";
+        return $this->formatGenericScalarValueAsIs($value);
     }
     
-    /**
-     * @param string $queryPart
-     *
-     * @return string
-     */
-    public function getSpecifierTypeFromQueryPart(string $queryPart): string
+    protected function getSpecifierTypeFromQueryPart(string $queryPart): string
     {
         $type = substr($queryPart, 1, 1);
         return $type;
     }
     
     /**
-     * @param mixed $value
-     *
-     * @return string
+     * Делаем строку безопасной для использования в запросе
      */
-    public function getRealEscapedStringForValue(mixed $value): string
+    protected function getRealEscapedString(string $value): string
     {
         return $this->mysqli->real_escape_string($value);
     }
     
-    /**
-     * @param array $value
-     *
-     * @return string
-     */
-    public function formatIdentifiersSet(array $value): string
+    protected function formatIdentifiersSet(array $value): string
     {
-        return "`" . implode('`, `', array_map(function ($val) {
-                return $this->getRealEscapedStringForValue($val);
-            }, $value)) . "`";
+        return implode(', ', array_map(function ($scalarValue) {
+            return $this->formatIdentifier($scalarValue);
+        }, $value));
     }
     
-    /**
-     * @param mixed $value
-     *
-     * @return string
-     */
-    public function formatIdentifier(mixed $value): string
+    protected function formatIdentifier(string $value): string
     {
-        return '`' . $this->getRealEscapedStringForValue($value) . '`';
+        return StringHelper::wrapWithTicks( $this->getRealEscapedString($value));
     }
     
-    public function formatArrayValue(array $value): string
+    protected function formatArrayValue(array $value): string
     {
         $set = [];
-        $isAssociative = $this->arrayIsAssociative($value);
+        $isAssociative = $this->isArrayAssociative($value);
         foreach ($value as $k => $v) {
-            $set[] = ($isAssociative ? '`' . $this->getRealEscapedStringForValue($k) . '` = ' : '') .
+            $set[] = ($isAssociative ? StringHelper::wrapWithTicks($this->getRealEscapedString($k)) . ' = ' : '') .
                 (is_null($v) ? 'NULL' : $this->getFormattedValue(
                     $v
-                )); // todo in all such cases wrap in ' if not a number
+                ));
         }
         $part = implode(', ', $set);
         return $part;
     }
     
     
-    public function formatNullableIntValue(mixed $value, $useIsNullInsteadOfAssignment = false): string
+    protected function formatNullableIntValue(mixed $value): string
     {
-        // todo what if SELECT? then IS null instead of = null
         return is_null($value) ? 'NULL' : (string)$value;
     }
     
-    protected function formatNullableFloatValue(mixed $value, $useIsNullInsteadOfAssignment = false): string
+    protected function formatNullableFloatValue(mixed $value): string
     {
-        // todo what if SELECT? then IS null instead of = null
         return is_null($value) ? 'NULL' : (string)$value;
+    }
+    
+    /**
+     * Скалярное значение любого типа оставляем, как есть, только экранируем
+     */
+    public function formatGenericScalarValueAsIs(mixed $value): string
+    {
+        if (is_null($value)){
+            $formattedValue = 'NULL';
+        }else {
+            $formattedValue = is_numeric($value) ? $value : "'" . $this->getRealEscapedString($value) . "'";
+        }
+        return $formattedValue;
+    }
+    
+    /**
+     * @param array $blockParts
+     * @param array $blockParameterValues
+     *
+     * @return bool
+     */
+    public function isBlockNeededToBeSkipped(array $blockParts, array $blockParameterValues): bool
+    {
+        $toSkip = false;
+        $currentBlockParameterIndex = 0;
+        
+        foreach ($blockParts as $blockPart) {
+            if ($this->isQueryPartAParameter($blockPart)) {
+                if ($blockParameterValues[$currentBlockParameterIndex] === $this->specialValueForMarkingSkippedBlocksInQueries) {
+                    $toSkip = true;
+                    break;
+                }
+                $currentBlockParameterIndex++;
+            }
+        }
+        return $toSkip;
     }
     
 }
