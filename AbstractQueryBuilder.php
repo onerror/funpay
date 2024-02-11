@@ -19,6 +19,10 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
     final public function buildQuery(string $queryTemplateString, array $queryParameterValues): string
     {
         try {
+            if ($this->countSpecifiersInString($queryTemplateString)!==count($queryParameterValues)) {
+                throw new \Exception('Количество параметров не совпадает с количеством спецификаторов в запросе');
+            }
+            
             $resultingQueryParameterValues = $queryParameterValues;
             $queryPartStrings = $this->splitQueryTemplateToProcessableParts($queryTemplateString);
             $resultingQueryPartsArray = [];
