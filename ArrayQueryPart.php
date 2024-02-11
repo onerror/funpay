@@ -39,6 +39,12 @@ class ArrayQueryPart extends AbstractSpecifier
     
     protected function valueIsValid(): bool
     {
-        return is_array($this->rawValue);
+        return is_array($this->rawValue) && empty(
+            array_filter($this->rawValue, fn($v) => !(is_null(
+                    $v
+                ) || is_float($v) || is_integer(
+                    $v
+                ) || is_string($v) || is_bool($v)))
+            );
     }
 }

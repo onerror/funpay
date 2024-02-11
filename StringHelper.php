@@ -1,6 +1,7 @@
 <?php
 
 namespace FpDbTest;
+
 class StringHelper
 {
     
@@ -13,6 +14,7 @@ class StringHelper
     {
         return "`{$inputString}`";
     }
+    
     public static function wrapWithQuotes(string $inputString): string
     {
         return "'{$inputString}'";

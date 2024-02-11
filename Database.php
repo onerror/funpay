@@ -18,7 +18,7 @@ class Database implements DatabaseInterface
      * @var QueryBuilderInterface[] $queryBuilders
      */
     private array $queryBuilders;
-
+    
     public function __construct(mysqli $mysqli)
     {
         $this->mysqli = $mysqli;
@@ -32,12 +32,11 @@ class Database implements DatabaseInterface
         try {
             $queryBuilder = $this->getQueryBuilder(static::getQueryBuilderClass($query));
             return $queryBuilder->buildQuery($query, $args);
-        }catch(\Throwable $t){
-            throw new Exception('Ошибка при построении запроса: ' . $t->getMessage(),$t->getCode(), $t->getPrevious());
+        } catch (\Throwable $t) {
+            throw new Exception('Ошибка при построении запроса: ' . $t->getMessage(), $t->getCode(), $t->getPrevious());
         }
-        
     }
-
+    
     public function skip(): string
     {
         return self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY;
@@ -60,7 +59,7 @@ class Database implements DatabaseInterface
                 self::SPECIAL_VALUE_FOR_MARKING_SKIPPED_BLOCKS_IN_QUERY
             );
         }
-
+        
         $queryBuilder = $this->queryBuilders[$queryBuilderClass];
         return $queryBuilder;
     }

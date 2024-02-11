@@ -10,7 +10,9 @@ class GenericScalarQueryPart extends AbstractSpecifier
         if (is_null($this->rawValue)) {
             $formattedValue = 'NULL';
         } else {
-            $formattedValue = is_numeric($this->rawValue) ? $this->rawValue : StringHelper::wrapWithQuotes($this->rawValue);
+            $formattedValue = is_numeric($this->rawValue) ? $this->rawValue : StringHelper::wrapWithQuotes(
+                $this->rawValue
+            );
         }
         return $formattedValue;
     }

@@ -18,9 +18,7 @@ class IdentifierQueryPart extends AbstractSpecifier
     
     protected function formatIdentifiersSet(array $value): string
     {
-        return implode(', ', array_map(function ($scalarValue) {
-            return $this->formatIdentifier($scalarValue);
-        }, $value));
+        return implode(', ', array_map(fn($scalarValue) => $this->formatIdentifier($scalarValue), $value));
     }
     
     protected function formatIdentifier(string $value): string
