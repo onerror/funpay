@@ -23,20 +23,19 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
                 throw new \Exception('Количество параметров не совпадает с количеством спецификаторов в запросе');
             }
             
-            $resultingQueryParameterValues = $queryParameterValues;
             $queryPartStrings = $this->splitQueryTemplateToProcessableParts($queryTemplateString);
             $resultingQueryPartsArray = [];
             
             [
                 $partsWithBlocksUnfoldedAndFiltered,
-                $resultingQueryParameterValues
-            ] = $this->getQueryPartsWithBlocksUnfoldedAndFiltered($queryPartStrings, $resultingQueryParameterValues);
+                $filteredQueryParameterValues
+            ] = $this->getQueryPartsWithBlocksUnfoldedAndFiltered($queryPartStrings, $queryParameterValues);
             
             $queryPartStrings = (new QueryPartsCollection($partsWithBlocksUnfoldedAndFiltered))->getQueryParts();
             
             foreach ($queryPartStrings as $queryPart) {
                 if ($queryPart instanceof SpecifierInterface) {
-                    $value = array_shift($resultingQueryParameterValues);
+                    $value = array_shift($filteredQueryParameterValues);
                     $value = is_string($value) ? $this->getRealEscapedString($value) : $value;
                     $resultingQueryPartsArray[] = $queryPart->formatParameterValue(
                         $value
