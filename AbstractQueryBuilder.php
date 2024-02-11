@@ -16,21 +16,21 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         $this->specialValueForMarkingSkippedBlocksInQueries = $specialValueForMarkingSkippedBlocksInQueries;
     }
     
-    final public function buildQuery(string $query, array $queryParameters): string
+    final public function buildQuery(string $queryTemplateString, array $queryParameterValues): string
     {
         try {
-            $resultingQueryParameterValues = $queryParameters;
-            $queryParts = $this->splitQueryTemplateToProcessableParts($query);
+            $resultingQueryParameterValues = $queryParameterValues;
+            $queryPartStrings = $this->splitQueryTemplateToProcessableParts($queryTemplateString);
             $resultingQueryPartsArray = [];
             
             [
                 $partsWithBlocksUnfoldedAndFiltered,
                 $resultingQueryParameterValues
-            ] = $this->getQueryPartsWithBlocksUnfoldedAndFiltered($queryParts, $resultingQueryParameterValues);
+            ] = $this->getQueryPartsWithBlocksUnfoldedAndFiltered($queryPartStrings, $resultingQueryParameterValues);
             
-            $queryParts = (new QueryPartsCollection($partsWithBlocksUnfoldedAndFiltered))->getQueryParts();
+            $queryPartStrings = (new QueryPartsCollection($partsWithBlocksUnfoldedAndFiltered))->getQueryParts();
             
-            foreach ($queryParts as $queryPart) {
+            foreach ($queryPartStrings as $queryPart) {
                 if ($queryPart instanceof SpecifierInterface) {
                     $value = array_shift($resultingQueryParameterValues);
                     $value = is_string($value) ? $this->getRealEscapedString($value) : $value;
@@ -66,13 +66,13 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
             if ($this->isBlock($queryPart[0])) {
                 $startingIndexOfBlockArguments = $argumentIndex;
                 $block = StringHelper::removeSurroundingCharacters($queryPart);
-                $argumentsInBlockTally = $this->countParametersInCurlyBracesBlock($block);
+                $argumentsInBlockTally = $this->countSpecifiersInString($block);
                 
                 $blockParts = $this->splitQueryTemplateToProcessableParts($block);
                 
                 $blockParameterValues = array_slice($queryParameterValues, $argumentIndex, $argumentsInBlockTally);
                 
-                if ($this->isBlockNeededToBeSkipped($blockParts, $blockParameterValues)) {
+                if ($this->containsSpecialValueForSkippedBlocks($blockParameterValues)) {
                     $blockPartsToProcess = [];
                     for ($indexToUnset = $startingIndexOfBlockArguments; $indexToUnset < $startingIndexOfBlockArguments + $argumentsInBlockTally; $indexToUnset++) {
                         unset($queryParameterValues[$indexToUnset]);
@@ -97,7 +97,7 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $parts;
     }
     
-    private function countParametersInCurlyBracesBlock(string $query): int
+    private function countSpecifiersInString(string $query): int
     {
         return substr_count($query, '?');
     }
@@ -115,26 +115,15 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $this->mysqli->real_escape_string($value);
     }
     
-    public function isBlockNeededToBeSkipped(array $blockParts, array $blockParameterValues): bool
+    public function containsSpecialValueForSkippedBlocks(array $blockParameterValues): bool
     {
-        $toSkip = false;
-        $currentBlockParameterIndex = 0;
-        
-        foreach ($blockParts as $blockPart) {
-            if ($this->isQueryPartAParameter($blockPart)) {
-                if ($blockParameterValues[$currentBlockParameterIndex] === $this->specialValueForMarkingSkippedBlocksInQueries) {
-                    $toSkip = true;
-                    break;
-                }
-                $currentBlockParameterIndex++;
-            }
-        }
-        return $toSkip;
+        $result = in_array($this->specialValueForMarkingSkippedBlocksInQueries, $blockParameterValues, true);
+        return $result;
     }
     
-    protected function isBlock($queryPart): bool
+    protected function isBlock($queryPartString): bool
     {
-        return $queryPart === '{';
+        return $queryPartString === '{';
     }
     
 }

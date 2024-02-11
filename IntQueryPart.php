@@ -11,4 +11,5 @@ class IntQueryPart extends AbstractQueryPart implements SpecifierInterface
     {
         return is_null($value) ? 'NULL' : (string)$value;
     }
+    
 }
