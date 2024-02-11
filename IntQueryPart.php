@@ -3,13 +3,11 @@
 namespace FpDbTest;
 
 
-class IntQueryPart extends AbstractQueryPart implements SpecifierInterface
+class IntQueryPart extends AbstractSpecifier implements SpecifierInterface
 {
-    protected string $templateQueryPartAsString;
-    
-    public function formatParameterValue($value): string
+    public function formatParameterValue(): string
     {
-        return is_null($value) ? 'NULL' : (string)$value;
+        return is_null($this->rawValue) ? 'NULL' : (string)$this->rawValue;
     }
     
 }

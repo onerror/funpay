@@ -3,15 +3,15 @@
 namespace FpDbTest;
 
 
-class ArrayQueryPart extends AbstractQueryPart implements SpecifierInterface
+class ArrayQueryPart extends AbstractSpecifier
 {
     protected string $templateQueryPartAsString;
     
-    public function formatParameterValue($value): string
+    public function formatParameterValue(): string
     {
         $set = [];
-        $isAssociative = $this->isArrayAssociative($value);
-        foreach ($value as $k => $v) {
+        $isAssociative = $this->isArrayAssociative($this->rawValue);
+        foreach ($this->rawValue as $k => $v) {
             $set[] = ($isAssociative ? StringHelper::wrapWithTicks($k) . ' = ' : '') .
                 (is_null($v) ? 'NULL' : $this->formatGenericScalarValueAsIs($v));
         }
@@ -35,5 +35,10 @@ class ArrayQueryPart extends AbstractQueryPart implements SpecifierInterface
             $formattedValue = is_numeric($value) ? $value : StringHelper::wrapWithQuotes($value);
         }
         return $formattedValue;
+    }
+    
+    protected function valueIsValid(): bool
+    {
+        return is_array($this->rawValue);
     }
 }

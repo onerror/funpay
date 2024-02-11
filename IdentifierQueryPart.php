@@ -3,16 +3,15 @@
 namespace FpDbTest;
 
 
-class IdentifierQueryPart extends AbstractQueryPart implements SpecifierInterface
+class IdentifierQueryPart extends AbstractSpecifier
 {
-    protected string $templateQueryPartAsString;
     
-    public function formatParameterValue($value): string
+    public function formatParameterValue(): string
     {
-        if (is_array($value)) {
-            $result = $this->formatIdentifiersSet($value);
+        if (is_array($this->rawValue)) {
+            $result = $this->formatIdentifiersSet($this->rawValue);
         } else {
-            $result = $this->formatIdentifier($value);
+            $result = $this->formatIdentifier($this->rawValue);
         }
         return $result;
     }
@@ -28,4 +27,10 @@ class IdentifierQueryPart extends AbstractQueryPart implements SpecifierInterfac
     {
         return StringHelper::wrapWithTicks($value);
     }
+    
+    protected function valueIsValid(): bool
+    {
+        return is_string($this->rawValue) || is_array($this->rawValue);
+    }
+    
 }

@@ -2,17 +2,17 @@
 
 namespace FpDbTest;
 
-class GenericScalarQueryPart extends AbstractQueryPart implements SpecifierInterface
+class GenericScalarQueryPart extends AbstractSpecifier
 {
-    protected string $templateQueryPartAsString;
     
-    public function formatParameterValue($value): string
+    public function formatParameterValue(): string
     {
-        if (is_null($value)) {
+        if (is_null($this->rawValue)) {
             $formattedValue = 'NULL';
         } else {
-            $formattedValue = is_numeric($value) ? $value : StringHelper::wrapWithQuotes($value);
+            $formattedValue = is_numeric($this->rawValue) ? $this->rawValue : StringHelper::wrapWithQuotes($this->rawValue);
         }
         return $formattedValue;
     }
+    
 }

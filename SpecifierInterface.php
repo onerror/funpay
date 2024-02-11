@@ -4,5 +4,5 @@ namespace FpDbTest;
 
 interface SpecifierInterface extends QueryPartInterface
 {
-    public function formatParameterValue($value): string;
+    public function __construct(string $queryPartAsString, mixed $value);
 }
