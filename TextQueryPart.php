@@ -2,6 +2,9 @@
 
 namespace FpDbTest;
 
+/**
+ * Часть запроса, которая не нуждается в обработке и подставляется в запрос как есть
+ */
 class TextQueryPart implements TextPartInterface
 {
     

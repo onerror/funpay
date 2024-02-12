@@ -4,6 +4,9 @@ namespace FpDbTest;
 
 use mysqli;
 
+/**
+ * Класс для построения запросов по шаблону и заданному набору значений спецификаторов, указанных в шаблоне
+ */
 abstract class AbstractQueryBuilder implements QueryBuilderInterface
 {
     private mysqli $mysqli;
@@ -19,10 +22,6 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
     final public function buildQuery(string $queryTemplateString, array $queryParameterValues): string
     {
         try {
-            if ($this->countSpecifiersInString($queryTemplateString) !== count($queryParameterValues)) {
-                throw new \Exception('Количество параметров не совпадает с количеством спецификаторов в запросе');
-            }
-            
             $queryPartsCollection = new QueryPartCollection(
                 $queryTemplateString,
                 array_map(fn($value) => is_string($value) ? $this->getRealEscapedString($value) : $value
@@ -44,16 +43,10 @@ abstract class AbstractQueryBuilder implements QueryBuilderInterface
         return $query;
     }
     
-    private function countSpecifiersInString(string $query): int
-    {
-        return substr_count($query, '?');
-    }
-    
-    
     /**
      * Делаем строку безопасной для использования в запросе
      */
-    protected function getRealEscapedString(string $value): string
+    final protected function getRealEscapedString(string $value): string
     {
         return $this->mysqli->real_escape_string($value);
     }

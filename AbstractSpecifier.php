@@ -2,6 +2,9 @@
 
 namespace FpDbTest;
 
+/**
+ * Класс спецификатора для запроса. Примеры спецификаторов: ?d, ?#
+ */
 abstract class AbstractSpecifier implements SpecifierInterface
 {
     protected string $templateQueryPartAsString;

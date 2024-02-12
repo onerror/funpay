@@ -2,6 +2,9 @@
 
 namespace FpDbTest;
 
+/**
+ * Часть запроса для любых скалярных значений, подставляемых на место спецификатора
+ */
 class GenericScalarQueryPart extends AbstractSpecifier
 {
     

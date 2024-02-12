@@ -2,7 +2,9 @@
 
 namespace FpDbTest;
 
-
+/**
+ * Часть запроса для идентификаторов, подставляемых на место спецификатора
+ */
 class IdentifierQueryPart extends AbstractSpecifier
 {
     

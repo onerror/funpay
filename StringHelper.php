@@ -2,6 +2,9 @@
 
 namespace FpDbTest;
 
+/**
+ * Класс, содержащий методы для работы со строками
+ */
 class StringHelper
 {
     

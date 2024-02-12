@@ -2,6 +2,10 @@
 
 namespace FpDbTest;
 
+/**
+ * Класс для демонстрации того, как можно расширять функционал базового класса за счет пост-обработки запроса
+ * В данном случае вместо операций сравнением c NULL в запросе будут использоваться IS NULL и IS NOT NULL
+ */
 class SelectQueryBuilder extends AbstractQueryBuilder
 {
     protected function postProcessQuery(string $query): string

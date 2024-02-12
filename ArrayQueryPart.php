@@ -2,7 +2,9 @@
 
 namespace FpDbTest;
 
-
+/**
+ * Часть запроса, представляющая собой массив, подставляемый на место спецификатора в запросе
+ */
 class ArrayQueryPart extends AbstractSpecifier
 {
     protected string $templateQueryPartAsString;
