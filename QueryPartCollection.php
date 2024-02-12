@@ -18,10 +18,11 @@ class QueryPartCollection
     private string $specialValueForMarkingSkippedBlocksInQueries;
     
     private array $specifierToClassMap = [
-        'd' => IntQueryPart::class,
-        'f' => FloatQueryPart::class,
-        '#' => IdentifierQueryPart::class,
-        'a' => ArrayQueryPart::class,
+        '?d' => IntQueryPart::class,
+        '?f' => FloatQueryPart::class,
+        '?#' => IdentifierQueryPart::class,
+        '?a' => ArrayQueryPart::class,
+        '?' => GenericScalarQueryPart::class,
     ];
     
     /**
@@ -61,39 +62,6 @@ class QueryPartCollection
         return implode('', $queryPartsStrings);
     }
     
-    private function countSpecifiersInString(string $query): int
-    {
-        return substr_count($query, '?');
-    }
-    
-    protected function splitQueryTemplateToProcessableParts(string $query): array
-    {
-        $parts = preg_split('~(\?[#daf]?|\{.*}?+)~u', $query, null, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-        return $parts;
-    }
-    
-    protected function getSpecifierTypeFromQueryPart(string $queryPartString): string
-    {
-        $type = substr($queryPartString, 1, 1);
-        return $type;
-    }
-    
-    protected function isQueryPartASpecifier(string $queryPartString): bool
-    {
-        return str_starts_with($queryPartString, '?');
-    }
-    
-    protected function isBlock($queryPartString): bool
-    {
-        return str_starts_with($queryPartString, '{');
-    }
-    
-    protected function containsSpecialValueForSkippedBlocks(array $blockParameterValues): bool
-    {
-        $result = in_array($this->specialValueForMarkingSkippedBlocksInQueries, $blockParameterValues, true);
-        return $result;
-    }
-    
     /**
      * @throws \Exception
      */
@@ -108,15 +76,11 @@ class QueryPartCollection
         
         foreach ($queryPartStrings as $queryPartString) {
             if ($this->isQueryPartASpecifier($queryPartString)) {
-                $specifierType = $this->getSpecifierTypeFromQueryPart($queryPartString);
-                
-                if (in_array($specifierType, array_keys($this->specifierToClassMap))) {
-                    $this->queryParts[] = new $this->specifierToClassMap[$specifierType](
-                        $queryPartString,
-                        $queryParameterValues[$parameterIndex]
-                    );
+                $specifierClass = $this->getSpecifierClassName($queryPartString);
+                if ($specifierClass === null) {
+                    throw new \Exception('Неизвестный спецификатор в запросе');
                 } else {
-                    $this->queryParts[] = new GenericScalarQueryPart(
+                    $this->queryParts[] = new $specifierClass(
                         $queryPartString,
                         $queryParameterValues[$parameterIndex]
                     );
@@ -140,6 +104,43 @@ class QueryPartCollection
                 $this->queryParts[] = new TextQueryPart($queryPartString);
             }
         }
+    }
+    
+    private function countSpecifiersInString(string $query): int
+    {
+        return substr_count($query, '?');
+    }
+    
+    protected function splitQueryTemplateToProcessableParts(string $query): array
+    {
+        $parts = preg_split('~(\?[#daf]?|\{.*}?+)~u', $query, null, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        return $parts;
+    }
+    protected function getSpecifierClassName(string $queryPartString): ?string
+    {
+        foreach ($this->specifierToClassMap as $specifierType => $specifierClass) {
+            if (str_starts_with($queryPartString, $specifierType)) {
+                return $specifierClass;
+            }
+        }
+       
+        return null;
+    }
+    
+    protected function isQueryPartASpecifier(string $queryPartString): bool
+    {
+        return str_starts_with($queryPartString, '?');
+    }
+    
+    protected function isBlock($queryPartString): bool
+    {
+        return str_starts_with($queryPartString, '{');
+    }
+    
+    protected function containsSpecialValueForSkippedBlocks(array $blockParameterValues): bool
+    {
+        $result = in_array($this->specialValueForMarkingSkippedBlocksInQueries, $blockParameterValues, true);
+        return $result;
     }
     
 }
