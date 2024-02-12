@@ -13,7 +13,7 @@ class QueryPartCollection
      */
     protected array $queryParts = [];
     
-    protected bool $needToTestOnSkipping = false;
+    protected bool $needToTestForSkipping = false;
     
     private string $specialValueForMarkingSkippedBlocksInQueries;
     
@@ -36,16 +36,16 @@ class QueryPartCollection
         string $queryTemplateString,
         array $queryParameterValues,
         $specialValueForMarkingSkippedBlocksInQueries,
-        bool $needToTestOnSkipping = false
+        bool $needToTestForSkipping = false
     ) {
-        $this->needToTestOnSkipping = $needToTestOnSkipping;
+        $this->needToTestForSkipping = $needToTestForSkipping;
         $this->specialValueForMarkingSkippedBlocksInQueries = $specialValueForMarkingSkippedBlocksInQueries;
         
         if ($this->countSpecifiersInString($queryTemplateString) !== count($queryParameterValues)) {
             throw new \Exception('Количество параметров не совпадает с количеством спецификаторов в запросе');
         }
         
-        if ($this->needToTestOnSkipping && $this->containsSpecialValueForSkippedBlocks($queryParameterValues)
+        if ($this->needToTestForSkipping && $this->containsSpecialValueForSkippedBlocks($queryParameterValues)
         ) {
             return;
         }
