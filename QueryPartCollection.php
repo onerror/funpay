@@ -17,7 +17,11 @@ class QueryPartCollection
     
     private string $specialValueForMarkingSkippedBlocksInQueries;
     
-    private array $specifierToClassMap = [
+    /**
+     * Когда структура проекта прояснится, эту константу можно вынести на верхний уровень, чтобы закрыть данный класс
+     * от изменений (SOLID Open/Closed Principle) в случае добавления новых спецификаторов
+     */
+    private const array SPECIFIER_TO_CLASS_MAP = [
         '?d' => IntQueryPart::class,
         '?f' => FloatQueryPart::class,
         '?#' => IdentifierQueryPart::class,
@@ -118,7 +122,7 @@ class QueryPartCollection
     }
     protected function getSpecifierClassName(string $queryPartString): ?string
     {
-        foreach ($this->specifierToClassMap as $specifierType => $specifierClass) {
+        foreach (self::SPECIFIER_TO_CLASS_MAP as $specifierType => $specifierClass) {
             if (str_starts_with($queryPartString, $specifierType)) {
                 return $specifierClass;
             }
